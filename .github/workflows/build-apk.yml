@@ -4,9 +4,6 @@ on:
   push:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -14,9 +11,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Auto-Extract Zip (If Uploaded Directly)
+      - name: Auto-Extract Zip If Uploaded Directly
         run: |
-          echo "Checking directory layout..."
           if [ ! -f "app/build.gradle" ]; then
             ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
             if [ -n "$ZIP_FILE" ]; then
@@ -24,7 +20,6 @@ jobs:
               unzip -o "$ZIP_FILE" -d .
             fi
           fi
-          echo "Files in root:"
           ls -la
 
       - name: Set up JDK 17
@@ -33,29 +28,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle 8.5
+      - name: Setup & Execute Gradle Build
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
+          arguments: assembleDebug --stacktrace --no-daemon
 
-      - name: Build Android APK
-        run: |
-          gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
-
-      - name: Upload APK to Artifacts (One-Tap Download)
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PocketFlip-PocoX6Pro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-
-      - name: Publish to GitHub Releases (Optional)
-        uses: softprops/action-gh-release@v2
-        continue-on-error: true
-        with:
-          tag_name: "v2.0.${{ github.run_number }}"
-          name: "PocketFlip Poco X6 Pro APK (Build #${{ github.run_number }})"
-          body: "Direct download: Click **PocketFlip-PocoX6Pro.apk** below under Assets."
-          files: app/build/outputs/apk/debug/app-debug.apk
